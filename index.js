@@ -38,6 +38,8 @@ const ClassInstance = mongoose.model('ClassInstance', classInstanceSchema);
 
 app.post('/sync', async (req, res) => {
     try {
+        console.log('Received Payload:', req.body);
+        
         const { yogaClasses, classInstances } = req.body;
 
         if (!yogaClasses || !classInstances) {
