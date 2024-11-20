@@ -1,27 +1,33 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
 
 const app = express();
+
+// Middleware để log thông tin request
 app.use((req, res, next) => {
     console.log(`Request URL: ${req.url}`);
     console.log(`Request Method: ${req.method}`);
     console.log(`Request Headers: ${JSON.stringify(req.headers)}`);
-    console.log(`Request Body: ${JSON.stringify(req.body)}`);
     next();
 });
 
-const mongoUri =
-    process.env.MONGO_URI ||
+// Middleware để parse JSON payload
+app.use(express.json()); // Thay thế body-parser cho JSON
+app.use(express.urlencoded({ extended: true })); // Để parse form-encoded payload
+
+// MongoDB connection
+const mongoUri = process.env.MONGO_URI || 
     'mongodb+srv://KhangYogaApp:khangkhanh0304@yogaapp.c0ddr.mongodb.net/YogaDB';
+
 mongoose
     .connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log('Connected to MongoDB'))
     .catch((err) => console.error('MongoDB connection error:', err));
 
+// Schema và Models
 const yogaClassSchema = new mongoose.Schema({
-    id: { type: String, required: true }, 
+    id: { type: String, required: true },
     dayOfWeek: String,
     time: String,
     type: String,
@@ -42,26 +48,29 @@ const classInstanceSchema = new mongoose.Schema({
 const YogaClass = mongoose.model('YogaClass', yogaClassSchema);
 const ClassInstance = mongoose.model('ClassInstance', classInstanceSchema);
 
+// Endpoint: Sync data
 app.post('/sync', async (req, res) => {
     try {
-        console.log('Received Payload:', req.body);
+        console.log('Received Payload:', req.body); // Log payload nhận được
 
         const { yogaClasses, classInstances } = req.body;
 
         if (!yogaClasses || !classInstances) {
-            return res
-                .status(400)
-                .json({ error: 'Payload không hợp lệ! Yêu cầu có yogaClasses và classInstances.' });
+            return res.status(400).json({ 
+                error: 'Payload không hợp lệ! Yêu cầu có yogaClasses và classInstances.' 
+            });
         }
 
         console.log('Sync Payload:', { yogaClasses, classInstances });
 
+        // Xóa dữ liệu cũ
         await YogaClass.deleteMany({});
         await ClassInstance.deleteMany({});
 
+        // Thêm dữ liệu mới
         await YogaClass.insertMany(
             yogaClasses.map((cls) => ({
-                yogaClassId: cls.id,
+                id: cls.id,
                 dayOfWeek: cls.dayOfWeek,
                 time: cls.time,
                 type: cls.type,
@@ -74,7 +83,7 @@ app.post('/sync', async (req, res) => {
 
         await ClassInstance.insertMany(
             classInstances.map((inst) => ({
-                instanceId: inst.id,
+                id: inst.id,
                 yogaClassId: inst.yogaClassId,
                 date: inst.date,
                 teacher: inst.teacher,
@@ -89,6 +98,7 @@ app.post('/sync', async (req, res) => {
     }
 });
 
+// Endpoint: Lấy danh sách lớp học
 app.get('/classes', async (req, res) => {
     try {
         const classes = await YogaClass.find();
@@ -99,6 +109,7 @@ app.get('/classes', async (req, res) => {
     }
 });
 
+// Endpoint: Thêm lớp học mới
 app.post('/classes', async (req, res) => {
     try {
         const yogaClass = new YogaClass(req.body);
@@ -109,6 +120,7 @@ app.post('/classes', async (req, res) => {
     }
 });
 
+// Endpoint: Lấy danh sách phiên bản lớp học
 app.get('/class-instances', async (req, res) => {
     try {
         const instances = await ClassInstance.find();
@@ -119,6 +131,7 @@ app.get('/class-instances', async (req, res) => {
     }
 });
 
+// Endpoint: Thêm phiên bản lớp học mới
 app.post('/class-instances', async (req, res) => {
     try {
         const instance = new ClassInstance(req.body);
@@ -129,6 +142,7 @@ app.post('/class-instances', async (req, res) => {
     }
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
